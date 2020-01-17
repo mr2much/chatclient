@@ -6,7 +6,6 @@ public class Message implements Serializable {
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 1L;
 	private MessageType messageType;
 	private String username;
 	private String msg;

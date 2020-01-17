@@ -46,6 +46,7 @@ public class Main extends Application {
 		vbox.setAlignment(Pos.CENTER);
 
 		TextArea chatBox = new TextArea();
+		chatBox.setEditable(false);
 
 		vbox.getChildren().addAll(chatBox);
 
@@ -67,13 +68,9 @@ public class Main extends Application {
 			@Override
 			public void handle(ActionEvent e) {
 				try {
-//					ChatClient chatClient = new ChatClient(txtUsername.getText(), "172.26.150.23", 5000);
-//					chatClient.setSoTimeout(5000);
-					clientController.connect(txtUsername.getText(), "172.26.150.23", 5000);
-//					clientController.sendMessage(MessageType.REGISTER, "carrier has arrived");
-					// chatClient = new ChatClient(new Socket("172.26.150.23",
-					// 5000));
-					// chatClient.setSoTimeout(5000);
+
+					chatClient = clientController.connect(txtUsername.getText(), "172.26.150.23", 5000);
+
 					displayConnectionStatus();
 				} catch (SocketTimeoutException ex) {
 					System.out.println("Socket connection timed out");
@@ -89,7 +86,11 @@ public class Main extends Application {
 
 			@Override
 			public void handle(ActionEvent e) {
-				clientController.close();
+				try {
+					clientController.close(chatClient);
+				} catch (IOException ex) {
+					System.out.println("Client error: " + ex.getMessage());
+				}
 				displayConnectionStatus();
 			}
 		});
@@ -100,7 +101,11 @@ public class Main extends Application {
 
 			@Override
 			public void handle(ActionEvent e) {
-				clientController.close();
+				try {
+					clientController.close(chatClient);
+				} catch (IOException ex) {
+					System.out.println("Client error: " + ex.getMessage());
+				}
 				stage.close();
 			}
 		});
@@ -110,6 +115,30 @@ public class Main extends Application {
 		grid.add(vbox, 0, 0);
 		grid.add(hbButtons, 0, 1);
 
+		VBox msgArea = new VBox(10);
+
+		TextArea messageBox = new TextArea();
+		messageBox.setPromptText("Digite su mensaje");
+
+		Button btnSend = new Button("Send");
+
+		btnSend.setOnAction(new EventHandler<ActionEvent>() {
+
+			@Override
+			public void handle(ActionEvent e) {
+				try {
+					clientController.sendMessage(MessageType.TEXT, messageBox.getText(), chatClient);
+				} catch (IOException ex) {
+					System.out.println("Client Error Sending Message: " + ex.getMessage());
+				}
+			}
+
+		});
+
+		msgArea.getChildren().addAll(messageBox, btnSend);
+
+		grid.add(msgArea, 0, 2);
+
 		Scene scene = new Scene(grid, 500, 600);
 		mainScene = scene;
 
@@ -118,8 +147,9 @@ public class Main extends Application {
 	}
 
 	private void displayConnectionStatus() {
-		if (chatClient != null && chatClient.isConnected()) {
+		if (chatClient != null && !chatClient.isClosed()) {
 			clientStatus = "Online";
+			System.out.println(clientStatus);
 		} else {
 			clientStatus = "Offline";
 		}

@@ -1,6 +1,5 @@
 package com.lockward.model;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -19,10 +18,7 @@ public class ChatClient extends Thread {
 		this.username = username;
 
 		output = new ObjectOutputStream(client.getOutputStream());
-		output.flush();
-		input = new ObjectInputStream(new BufferedInputStream(client.getInputStream()));
-
-		System.out.println("Llega aqui");
+		input = new ObjectInputStream(client.getInputStream());
 
 		sendMessage(new Message(MessageType.REGISTER, "carrier has arrived", username));
 	}
@@ -61,8 +57,8 @@ public class ChatClient extends Thread {
 		}
 	}
 
-	public boolean isConnected() {
-		return client.isConnected();
+	public boolean isClosed() {
+		return client.isClosed();
 	}
 
 	public String getUsername() {
@@ -70,13 +66,17 @@ public class ChatClient extends Thread {
 	}
 
 	public void sendMessage(Message message) throws IOException {
-//		System.out.println("Sending message");
-		 output.writeObject(message);
-		 output.flush();
+		System.out.println("Sending message: " + message.getMessage());
+		output.writeObject(message);
+		output.flush();
 	}
 
-	public void sendMessage(MessageType messageType, String msg) {
-		// TODO Auto-generated method stub
+	public void sendMessage(MessageType messageType, String msg) throws IOException {
+		sendMessage(new Message(messageType, msg, this.username));
+	}
 
+	public void close() throws IOException {
+		client.close();
+		this.interrupt();
 	}
 }
