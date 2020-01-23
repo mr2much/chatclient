@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 
 import com.lockward.model.ChatClient;
+import com.lockward.model.Message;
 import com.lockward.model.MessageType;
 
 public class ChatClientController {
@@ -26,5 +27,9 @@ public class ChatClientController {
 
 	public void sendMessage(MessageType messageType, String msg, ChatClient chatClient) throws IOException {
 		chatClient.sendMessage(messageType, msg);
+	}
+
+	public Message receiveMessage(ChatClient chatClient) throws ClassNotFoundException, IOException {
+		return chatClient.receiveMessage();
 	}
 }

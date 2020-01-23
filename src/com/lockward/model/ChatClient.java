@@ -79,4 +79,10 @@ public class ChatClient extends Thread {
 		client.close();
 		this.interrupt();
 	}
+
+	public Message receiveMessage() throws ClassNotFoundException, IOException {
+		System.out.println("Receiving transmition...");
+		Message message = (Message) input.readObject();
+		return message;
+	}
 }

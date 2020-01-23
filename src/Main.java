@@ -3,6 +3,7 @@ import java.net.SocketTimeoutException;
 
 import com.lockward.controller.ChatClientController;
 import com.lockward.model.ChatClient;
+import com.lockward.model.Message;
 import com.lockward.model.MessageType;
 
 import javafx.application.Application;
@@ -26,6 +27,7 @@ public class Main extends Application {
 	private ChatClient chatClient;
 	private String clientStatus = "Offline";
 	private Scene mainScene;
+	Message outgoing = null;
 
 	public static void main(String[] args) {
 		launch(args);
@@ -127,9 +129,18 @@ public class Main extends Application {
 			@Override
 			public void handle(ActionEvent e) {
 				try {
-					clientController.sendMessage(MessageType.TEXT, messageBox.getText(), chatClient);
+					outgoing = new Message(MessageType.TEXT, messageBox.getText(), chatClient.getUsername());
+					chatClient.sendMessage(outgoing);
+					Message message = clientController.receiveMessage(chatClient);
+
+					if(message != null) {
+						System.out.println("Mensaje recibido");
+					}
 				} catch (IOException ex) {
-					System.out.println("Client Error Sending Message: " + ex.getMessage());
+					System.out.println("Client Error Sending Message: " + ex.getMessage() +
+							"\nMessage: " + outgoing.getMessage());
+				} catch (ClassNotFoundException ex) {
+					System.out.println("Error reading message: " + ex.getMessage());
 				}
 			}
 
