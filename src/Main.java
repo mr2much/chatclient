@@ -20,6 +20,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 public class Main extends Application {
 
@@ -133,12 +134,14 @@ public class Main extends Application {
 					chatClient.sendMessage(outgoing);
 					Message message = clientController.receiveMessage(chatClient);
 
-					if(message != null) {
+					if (message != null) {
 						System.out.println("Mensaje recibido");
+						System.out.println("From: " + message.getUsername());
+						System.out.println("Mensaje: " + message.getMessage());
 					}
 				} catch (IOException ex) {
-					System.out.println("Client Error Sending Message: " + ex.getMessage() +
-							"\nMessage: " + outgoing.getMessage());
+					System.out.println(
+							"Client Error Sending Message: " + ex.getMessage() + "\nMessage: " + outgoing.getMessage());
 				} catch (ClassNotFoundException ex) {
 					System.out.println("Error reading message: " + ex.getMessage());
 				}
@@ -154,6 +157,7 @@ public class Main extends Application {
 		mainScene = scene;
 
 		stage.setScene(scene);
+		stage.getScene().getWindow().addEventFilter(WindowEvent.WINDOW_HIDING, this::closeConnection);
 		stage.show();
 	}
 
@@ -167,5 +171,17 @@ public class Main extends Application {
 
 		Stage stage = (Stage) mainScene.getWindow();
 		stage.setTitle("Chat - " + clientStatus);
+	}
+
+	private void closeConnection(WindowEvent event) {
+		System.out.println("Closing connection");
+		if(chatClient != null) {
+			try {
+				chatClient.sendMessage(new Message(MessageType.LOGOFF, chatClient.getUsername() + " has left the building", chatClient.getUsername()));
+				chatClient.close();
+			} catch (IOException e) {
+				System.out.println("Error closing client connection: " + e.getMessage());
+			}
+		}
 	}
 }
