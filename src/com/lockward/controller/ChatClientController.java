@@ -1,6 +1,7 @@
 package com.lockward.controller;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.UnknownHostException;
 
 import com.lockward.model.ChatClient;
@@ -31,5 +32,9 @@ public class ChatClientController {
 
 	public Message receiveMessage(ChatClient chatClient) throws ClassNotFoundException, IOException {
 		return chatClient.receiveMessage();
+	}
+
+	public ObjectInputStream getObjectInputStream(ChatClient chatClient) throws IOException {
+		return chatClient.getObjectInputStream();
 	}
 }

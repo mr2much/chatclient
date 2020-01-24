@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.SocketTimeoutException;
 
 import com.lockward.controller.ChatClientController;
@@ -28,7 +29,9 @@ public class Main extends Application {
 	private ChatClient chatClient;
 	private String clientStatus = "Offline";
 	private Scene mainScene;
-	Message outgoing = null;
+	private ObjectInputStream input;
+	private TextArea chatBox;
+	private Message outgoing = null;
 
 	public static void main(String[] args) {
 		launch(args);
@@ -48,7 +51,7 @@ public class Main extends Application {
 		VBox vbox = new VBox(10);
 		vbox.setAlignment(Pos.CENTER);
 
-		TextArea chatBox = new TextArea();
+		chatBox = new TextArea();
 		chatBox.setEditable(false);
 
 		vbox.getChildren().addAll(chatBox);
@@ -74,12 +77,16 @@ public class Main extends Application {
 
 					chatClient = clientController.connect(txtUsername.getText(), "172.26.150.23", 5000);
 
+					connectToChat();
+
 					displayConnectionStatus();
 				} catch (SocketTimeoutException ex) {
 					System.out.println("Socket connection timed out");
 				} catch (IOException ex) {
 					// TODO Auto-generated catch block
 					System.out.println("Client error: " + ex.getMessage());
+				} catch (ClassNotFoundException ex) {
+					System.out.println("Error reading message: " + ex.getMessage());
 				}
 			}
 		});
@@ -136,9 +143,10 @@ public class Main extends Application {
 
 					if (message != null) {
 						System.out.println("Mensaje recibido");
-						System.out.println("From: " + message.getUsername());
-						System.out.println("Mensaje: " + message.getMessage());
+						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
 					}
+
+					messageBox.clear();
 				} catch (IOException ex) {
 					System.out.println(
 							"Client Error Sending Message: " + ex.getMessage() + "\nMessage: " + outgoing.getMessage());
@@ -161,6 +169,19 @@ public class Main extends Application {
 		stage.show();
 	}
 
+	private void connectToChat() throws ClassNotFoundException {
+		Message message = null;
+		try {
+			input = clientController.getObjectInputStream(chatClient);
+
+			while ((message = (Message) input.readObject()) != null) {
+				chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
+			}
+		} catch (IOException e) {
+			System.out.println("Error opening input stream: " + e.getMessage());
+		}
+	}
+
 	private void displayConnectionStatus() {
 		if (chatClient != null && !chatClient.isClosed()) {
 			clientStatus = "Online";
@@ -174,10 +195,11 @@ public class Main extends Application {
 	}
 
 	private void closeConnection(WindowEvent event) {
-		System.out.println("Closing connection");
-		if(chatClient != null) {
+		if (chatClient != null) {
 			try {
-				chatClient.sendMessage(new Message(MessageType.LOGOFF, chatClient.getUsername() + " has left the building", chatClient.getUsername()));
+				System.out.println("Closing connection");
+				chatClient.sendMessage(new Message(MessageType.LOGOFF,
+						chatClient.getUsername() + " has left the building", chatClient.getUsername()));
 				chatClient.close();
 			} catch (IOException e) {
 				System.out.println("Error closing client connection: " + e.getMessage());

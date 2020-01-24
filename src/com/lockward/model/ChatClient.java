@@ -85,4 +85,8 @@ public class ChatClient extends Thread {
 		Message message = (Message) input.readObject();
 		return message;
 	}
+
+	public ObjectInputStream getObjectInputStream() throws IOException {
+		return new ObjectInputStream(client.getInputStream());
+	}
 }
