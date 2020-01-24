@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.lockward.controller.ChatClientController;
 import com.lockward.model.ChatClient;
@@ -85,8 +87,6 @@ public class Main extends Application {
 				} catch (IOException ex) {
 					// TODO Auto-generated catch block
 					System.out.println("Client error: " + ex.getMessage());
-				} catch (ClassNotFoundException ex) {
-					System.out.println("Error reading message: " + ex.getMessage());
 				}
 			}
 		});
@@ -139,19 +139,19 @@ public class Main extends Application {
 				try {
 					outgoing = new Message(MessageType.TEXT, messageBox.getText(), chatClient.getUsername());
 					chatClient.sendMessage(outgoing);
-					Message message = clientController.receiveMessage(chatClient);
-
-					if (message != null) {
-						System.out.println("Mensaje recibido");
-						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
-					}
+					// Message message =
+					// clientController.receiveMessage(chatClient);
+					//
+					// if (message != null) {
+					// System.out.println("Mensaje recibido");
+					// chatBox.appendText(message.getUsername() + ": " +
+					// message.getMessage() + "\n");
+					// }
 
 					messageBox.clear();
 				} catch (IOException ex) {
 					System.out.println(
 							"Client Error Sending Message: " + ex.getMessage() + "\nMessage: " + outgoing.getMessage());
-				} catch (ClassNotFoundException ex) {
-					System.out.println("Error reading message: " + ex.getMessage());
 				}
 			}
 
@@ -169,17 +169,9 @@ public class Main extends Application {
 		stage.show();
 	}
 
-	private void connectToChat() throws ClassNotFoundException {
-		Message message = null;
-		try {
-			input = clientController.getObjectInputStream(chatClient);
-
-			while ((message = (Message) input.readObject()) != null) {
-				chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
-			}
-		} catch (IOException e) {
-			System.out.println("Error opening input stream: " + e.getMessage());
-		}
+	private void connectToChat() {
+		ExecutorService pool = Executors.newFixedThreadPool(1);
+		pool.execute(new InputHandler());
 	}
 
 	private void displayConnectionStatus() {
@@ -205,5 +197,30 @@ public class Main extends Application {
 				System.out.println("Error closing client connection: " + e.getMessage());
 			}
 		}
+	}
+
+	private class InputHandler implements Runnable {
+
+		@Override
+		public void run() {
+			Message message = null;
+			try {
+				if (input == null) {
+					input = clientController.getObjectInputStream(chatClient);
+				}
+
+				try {
+					while ((message = (Message) input.readObject()) != null) {
+						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
+					}
+				} catch (ClassNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			} catch (IOException e) {
+				System.out.println("Error opening input stream: " + e.getMessage());
+			}
+		}
+
 	}
 }

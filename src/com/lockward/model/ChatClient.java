@@ -87,6 +87,6 @@ public class ChatClient extends Thread {
 	}
 
 	public ObjectInputStream getObjectInputStream() throws IOException {
-		return new ObjectInputStream(client.getInputStream());
+		return input;
 	}
 }
