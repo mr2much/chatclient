@@ -170,7 +170,7 @@ public class Main extends Application {
 	}
 
 	private void connectToChat() {
-		ExecutorService pool = Executors.newFixedThreadPool(1);
+		ExecutorService pool = Executors.newSingleThreadExecutor();
 		pool.execute(new InputHandler());
 	}
 
@@ -210,7 +210,9 @@ public class Main extends Application {
 				}
 
 				try {
-					while ((message = (Message) input.readObject()) != null) {
+					while (true) {
+						message = (Message) input.readObject();
+						System.out.println("Mensaje recibido: " + message.getMessage());
 						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
 					}
 				} catch (ClassNotFoundException e) {
