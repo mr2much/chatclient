@@ -1,13 +1,13 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.net.SocketTimeoutException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 
 import com.lockward.controller.ChatClientController;
 import com.lockward.model.ChatClient;
 import com.lockward.model.Message;
 import com.lockward.model.MessageType;
+import com.lockward.observer.InputObserver;
 
 import javafx.application.Application;
 import javafx.event.ActionEvent;
@@ -25,15 +25,17 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
-public class Main extends Application {
+public class Main extends Application implements InputObserver {
 
 	private ChatClientController clientController = new ChatClientController();
 	private ChatClient chatClient;
 	private String clientStatus = "Offline";
 	private Scene mainScene;
-	private ObjectInputStream input;
 	private TextArea chatBox;
 	private Message outgoing = null;
+	private MessageHandler messageHandler;
+	private static final String host = "172.26.150.23";
+	private static final int timeout = 5000;
 
 	public static void main(String[] args) {
 		launch(args);
@@ -76,18 +78,21 @@ public class Main extends Application {
 			@Override
 			public void handle(ActionEvent e) {
 				try {
+					messageHandler = new MessageHandler(txtUsername.getText());
 
-					chatClient = clientController.connect(txtUsername.getText(), "172.26.150.23", 5000);
+					if (messageHandler != null) {
+						messageHandler.start();
 
-					connectToChat();
+					}
+
+					messageHandler.sendMessage(
+							new Message(MessageType.REGISTER, "carrier has arrived", messageHandler.getUsername()));
 
 					displayConnectionStatus();
-				} catch (SocketTimeoutException ex) {
-					System.out.println("Socket connection timed out");
 				} catch (IOException ex) {
-					// TODO Auto-generated catch block
 					System.out.println("Client error: " + ex.getMessage());
 				}
+
 			}
 		});
 		Button btnClose = new Button("Close");
@@ -96,12 +101,10 @@ public class Main extends Application {
 
 			@Override
 			public void handle(ActionEvent e) {
-				try {
-					clientController.close(chatClient);
-				} catch (IOException ex) {
-					System.out.println("Client error: " + ex.getMessage());
-				}
+				closeClientConnection();
+
 				displayConnectionStatus();
+
 			}
 		});
 
@@ -111,11 +114,7 @@ public class Main extends Application {
 
 			@Override
 			public void handle(ActionEvent e) {
-				try {
-					clientController.close(chatClient);
-				} catch (IOException ex) {
-					System.out.println("Client error: " + ex.getMessage());
-				}
+				closeClientConnection();
 				stage.close();
 			}
 		});
@@ -137,8 +136,8 @@ public class Main extends Application {
 			@Override
 			public void handle(ActionEvent e) {
 				try {
-					outgoing = new Message(MessageType.TEXT, messageBox.getText(), chatClient.getUsername());
-					chatClient.sendMessage(outgoing);
+					outgoing = new Message(MessageType.TEXT, messageBox.getText(), messageHandler.getUsername());
+					messageHandler.sendMessage(outgoing);
 					// Message message =
 					// clientController.receiveMessage(chatClient);
 					//
@@ -169,13 +168,30 @@ public class Main extends Application {
 		stage.show();
 	}
 
+	private void closeClientConnection() {
+		if (messageHandler != null && !messageHandler.isClosed()) {
+			try {
+				messageHandler.sendMessage(new Message(MessageType.LOGOFF,
+						messageHandler.getUsername() + " has left the building", messageHandler.getUsername()));
+				messageHandler.close();
+				messageHandler.interrupt();
+
+			} catch (IOException ex) {
+				System.out.println("Client error: " + ex.getMessage());
+			}
+		}
+
+	}
+
 	private void connectToChat() {
-		ExecutorService pool = Executors.newSingleThreadExecutor();
-		pool.execute(new InputHandler());
+		clientController.register(chatClient, this);
+		chatClient.start();
+		// ExecutorService pool = Executors.newSingleThreadExecutor();
+		// pool.execute(new InputHandler());
 	}
 
 	private void displayConnectionStatus() {
-		if (chatClient != null && !chatClient.isClosed()) {
+		if (messageHandler != null && !messageHandler.isClosed()) {
 			clientStatus = "Online";
 			System.out.println(clientStatus);
 		} else {
@@ -187,42 +203,93 @@ public class Main extends Application {
 	}
 
 	private void closeConnection(WindowEvent event) {
-		if (chatClient != null) {
+		if (messageHandler != null) {
 			try {
 				System.out.println("Closing connection");
-				chatClient.sendMessage(new Message(MessageType.LOGOFF,
-						chatClient.getUsername() + " has left the building", chatClient.getUsername()));
-				chatClient.close();
+				messageHandler.sendMessage(new Message(MessageType.LOGOFF,
+						messageHandler.getUsername() + " has left the building", messageHandler.getUsername()));
+				messageHandler.close();
 			} catch (IOException e) {
 				System.out.println("Error closing client connection: " + e.getMessage());
 			}
 		}
 	}
 
-	private class InputHandler implements Runnable {
+	@Override
+	public void update(Message message) {
+		System.out.println("Mensaje recibido: " + message.getMessage());
+		chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
+	}
 
-		@Override
-		public void run() {
-			Message message = null;
+	private class MessageHandler extends Thread {
+
+		private ObjectInputStream input;
+		private ObjectOutputStream output;
+		private Message message;
+		private String username;
+		private Socket socket;
+
+		public MessageHandler(String username) {
+			this.username = username;
+
 			try {
-				if (input == null) {
-					input = clientController.getObjectInputStream(chatClient);
+				if (socket == null) {
+
+					socket = new Socket(host, timeout);
+
+					if (output == null) {
+						output = new ObjectOutputStream(socket.getOutputStream());
+					}
+
+					if (input == null) {
+						input = new ObjectInputStream(socket.getInputStream());
+					}
+
 				}
 
-				try {
-					while (true) {
-						message = (Message) input.readObject();
-						System.out.println("Mensaje recibido: " + message.getMessage());
-						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
-					}
-				} catch (ClassNotFoundException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
 			} catch (IOException e) {
-				System.out.println("Error opening input stream: " + e.getMessage());
+				System.out.println("Client Error: " + e.getMessage());
 			}
 		}
 
+		@Override
+		public void run() {
+
+			System.out.println("Client running.");
+			try {
+				while (true) {
+					while ((message = (Message) input.readObject()) != null) {
+						System.out.println("Mensaje recibido");
+						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
+					}
+				}
+			} catch (IOException | ClassNotFoundException e) {
+				System.out.println("Client error: " + e.getMessage());
+			}
+
+		}
+
+		public void sendMessage(Message message) throws IOException {
+			System.out.println("Sending message: " + message.getMessage());
+			output.writeObject(message);
+			output.flush();
+		}
+
+		public void close() throws IOException {
+			socket.close();
+		}
+
+		public boolean isClosed() {
+			if (socket != null) {
+				return socket.isClosed();
+			}
+
+			return true;
+
+		}
+
+		public String getUsername() {
+			return username;
+		}
 	}
 }

@@ -1,12 +1,12 @@
 package com.lockward.controller;
 
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.net.UnknownHostException;
 
 import com.lockward.model.ChatClient;
 import com.lockward.model.Message;
 import com.lockward.model.MessageType;
+import com.lockward.observer.InputObserver;
 
 public class ChatClientController {
 
@@ -34,7 +34,7 @@ public class ChatClientController {
 		return chatClient.receiveMessage();
 	}
 
-	public ObjectInputStream getObjectInputStream(ChatClient chatClient) throws IOException {
-		return chatClient.getObjectInputStream();
+	public void register(ChatClient chatClient, InputObserver observer) {
+		chatClient.register(observer);
 	}
 }

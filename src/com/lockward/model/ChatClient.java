@@ -6,19 +6,24 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.lockward.observer.InputObserver;
 
 public class ChatClient extends Thread {
 	private ObjectInputStream input;
 	private ObjectOutputStream output;
 	private Socket client;
 	private String username;
+	private List<InputObserver> observers = new ArrayList<>();
 
 	public ChatClient(String username, Socket client) throws IOException {
 		this.client = client;
 		this.username = username;
 
 		output = new ObjectOutputStream(client.getOutputStream());
-		input = new ObjectInputStream(client.getInputStream());
+//		input = new ObjectInputStream(client.getInputStream());
 
 		sendMessage(new Message(MessageType.REGISTER, "carrier has arrived", username));
 	}
@@ -29,21 +34,30 @@ public class ChatClient extends Thread {
 
 	@Override
 	public void run() {
-		String line;
-		System.out.println("I'm running");
-
+		Message message = null;
 		try {
 			while (true) {
-				line = (String) input.readObject();
-
-				if (line.equalsIgnoreCase("exit")) {
-					break;
-				}
-
-				// output.println(line);
+				input = new ObjectInputStream(client.getInputStream());
+				message = (Message) input.readObject();
+				notify(message);
+				input.close();
 			}
 		} catch (IOException | ClassNotFoundException e) {
 			System.out.println("Client Error: " + e.getMessage());
+		}
+	}
+
+	public boolean register(InputObserver observer) {
+		return observers.add(observer);
+	}
+
+	public boolean remove(InputObserver observer) {
+		return observers.remove(observer);
+	}
+
+	private void notify(Message message) {
+		for (InputObserver observer : observers) {
+			observer.update(message);
 		}
 	}
 
@@ -84,9 +98,5 @@ public class ChatClient extends Thread {
 		System.out.println("Receiving transmition...");
 		Message message = (Message) input.readObject();
 		return message;
-	}
-
-	public ObjectInputStream getObjectInputStream() throws IOException {
-		return input;
 	}
 }
