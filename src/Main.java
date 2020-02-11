@@ -10,6 +10,8 @@ import com.lockward.model.MessageType;
 import com.lockward.observer.InputObserver;
 
 import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -34,7 +36,8 @@ public class Main extends Application implements InputObserver {
 	private String clientStatus = "Offline";
 	private Scene mainScene;
 	private TextArea chatBox;
-	private ListView<String> onlineUsers = new ListView<>();
+	private ListView<String> onlineUsers;
+	private static final ObservableList<String> users = FXCollections.observableArrayList();
 	private Message outgoing = null;
 	private MessageHandler messageHandler;
 	private static final String host = "172.26.150.23";
@@ -46,6 +49,7 @@ public class Main extends Application implements InputObserver {
 
 	@Override
 	public void start(Stage stage) throws Exception {
+		onlineUsers = new ListView<>(users);
 		GridPane grid = new GridPane();
 		grid.setPadding(new Insets(15, 15, 15, 15));
 		grid.setVgap(10);
@@ -259,6 +263,7 @@ public class Main extends Application implements InputObserver {
 				while (true) {
 					while ((message = (Message) input.readObject()) != null) {
 						System.out.println("Mensaje recibido");
+						parseMessage(message);
 						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
 					}
 				}
@@ -266,6 +271,32 @@ public class Main extends Application implements InputObserver {
 				System.out.println("Client error: " + e.getMessage());
 			}
 
+		}
+
+		private void parseMessage(Message message) {
+			System.out.println("Parsing input: " + message.getMessage());
+
+			String username = message.getUsername();
+
+			switch (message.getMessageType()) {
+			case REGISTER:
+				if (showNewUserOnList(message)) {
+					System.out.println("User added");
+				}
+				break;
+			default:
+				break;
+			}
+		}
+
+		private boolean showNewUserOnList(Message message) {
+			String newUsername = obtainUsernameFromMessage(message.getMessage());
+
+			return users.add(newUsername);
+		}
+
+		private String obtainUsernameFromMessage(String msg) {
+			return msg.split("has logged in")[0].trim();
 		}
 
 		public void sendMessage(Message message) throws IOException {
