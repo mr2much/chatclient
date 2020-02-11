@@ -17,8 +17,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -32,6 +34,7 @@ public class Main extends Application implements InputObserver {
 	private String clientStatus = "Offline";
 	private Scene mainScene;
 	private TextArea chatBox;
+	private ListView<String> onlineUsers = new ListView<>();
 	private Message outgoing = null;
 	private MessageHandler messageHandler;
 	private static final String host = "172.26.150.23";
@@ -52,13 +55,16 @@ public class Main extends Application implements InputObserver {
 
 		stage.setTitle("Chat - " + clientStatus);
 
-		VBox vbox = new VBox(10);
-		vbox.setAlignment(Pos.CENTER);
+		VBox vbox = new VBox(2);
+		vbox.setAlignment(Pos.CENTER_LEFT);
+
+		Label lblChatBox = new Label("Mensajes:");
 
 		chatBox = new TextArea();
+		chatBox.setPrefRowCount(40);
 		chatBox.setEditable(false);
 
-		vbox.getChildren().addAll(chatBox);
+		vbox.getChildren().addAll(lblChatBox, chatBox);
 
 		HBox hbButtons = new HBox(10);
 		hbButtons.setAlignment(Pos.CENTER_RIGHT);
@@ -126,7 +132,7 @@ public class Main extends Application implements InputObserver {
 
 		VBox msgArea = new VBox(10);
 
-		TextArea messageBox = new TextArea();
+		TextField messageBox = new TextField();
 		messageBox.setPromptText("Digite su mensaje");
 
 		Button btnSend = new Button("Send");
@@ -138,15 +144,6 @@ public class Main extends Application implements InputObserver {
 				try {
 					outgoing = new Message(MessageType.TEXT, messageBox.getText(), messageHandler.getUsername());
 					messageHandler.sendMessage(outgoing);
-					// Message message =
-					// clientController.receiveMessage(chatClient);
-					//
-					// if (message != null) {
-					// System.out.println("Mensaje recibido");
-					// chatBox.appendText(message.getUsername() + ": " +
-					// message.getMessage() + "\n");
-					// }
-
 					messageBox.clear();
 				} catch (IOException ex) {
 					System.out.println(
@@ -160,7 +157,16 @@ public class Main extends Application implements InputObserver {
 
 		grid.add(msgArea, 0, 2);
 
-		Scene scene = new Scene(grid, 500, 600);
+		BorderPane vbUsers = new BorderPane();
+
+		Label lblUsers = new Label("En Linea:");
+
+		vbUsers.setTop(lblUsers);
+		vbUsers.setCenter(onlineUsers);
+
+		grid.add(vbUsers, 1, 0, 1, 3);
+
+		Scene scene = new Scene(grid, 580, 600);
 		mainScene = scene;
 
 		stage.setScene(scene);
@@ -181,13 +187,6 @@ public class Main extends Application implements InputObserver {
 			}
 		}
 
-	}
-
-	private void connectToChat() {
-		clientController.register(chatClient, this);
-		chatClient.start();
-		// ExecutorService pool = Executors.newSingleThreadExecutor();
-		// pool.execute(new InputHandler());
 	}
 
 	private void displayConnectionStatus() {
