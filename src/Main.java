@@ -208,6 +208,7 @@ public class Main extends Application implements InputObserver {
 			clientStatus = "Offline";
 		}
 
+		users.clear();
 		Stage stage = (Stage) mainScene.getWindow();
 		stage.setTitle("Chat - " + clientStatus);
 	}
@@ -307,22 +308,13 @@ public class Main extends Application implements InputObserver {
 				@Override
 				public void run() {
 
-					if (message.getAttachment() instanceof Object[]) {
-						Object[] src = (Object[]) message.getAttachment();
+					String[] src = (String[]) message.getAttachment();
 
-						if (src != null) {
-							String[] names = new String[src.length];
-
-							for (int i = 0; i < src.length; i++) {
-								names[i] = src[i].toString();
-							}
-
-							users.setAll(names);
-						}
+					if (src != null) {
+						users.setAll(src);
 					}
 				}
 			});
-
 		}
 
 		private String obtainUsernameFromMessage(String msg, String pattern) {
