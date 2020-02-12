@@ -26,9 +26,10 @@ public class ChatClientController {
 		return chatClient;
 	}
 
-	public void sendMessage(MessageType messageType, String msg, ChatClient chatClient) throws IOException {
-		chatClient.sendMessage(messageType, msg);
-	}
+	// public void sendMessage(MessageType messageType, String msg, ChatClient
+	// chatClient) throws IOException {
+	// chatClient.sendMessage(messageType, msg);
+	// }
 
 	public Message receiveMessage(ChatClient chatClient) throws ClassNotFoundException, IOException {
 		return chatClient.receiveMessage();

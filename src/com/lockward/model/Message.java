@@ -6,18 +6,40 @@ public class Message implements Serializable {
 	/**
 	 *
 	 */
-	private MessageType messageType;
-	private String username;
-	private String msg;
+	private static final long serialVersionUID = 6569200380945433124L;
+	/**
+	 *
+	 */
+	private final MessageType messageType;
+	private final MessageType subMessageType;
+	private final String username;
+	private final String msg;
+	private final Object attachment;
 
-	public Message(MessageType messageType, String msg) {
-		setMessageType(messageType);
-		setMessage(msg);
+	public Message(MessageBuilder builder) {
+		messageType = builder.messageType;
+		subMessageType = builder.subMessageType;
+		username = builder.username;
+		msg = builder.msg;
+		attachment = builder.attachment;
 	}
 
-	public Message(MessageType messageType, String msg, String username) {
-		this(messageType, msg);
-		setUsername(username);
+//	public Message(MessageType messageType, String msg) {
+//		setMessageType(messageType);
+//		setMessage(msg);
+//	}
+//
+//	public Message(MessageType messageType, String msg, String username) {
+//		this(messageType, msg);
+//		setUsername(username);
+//	}
+
+	public MessageType getSubMessageType() {
+		return subMessageType;
+	}
+
+	public Object getAttachment() {
+		return attachment;
 	}
 
 	public String getMessage() {
@@ -32,15 +54,15 @@ public class Message implements Serializable {
 		return username;
 	}
 
-	public void setMessageType(MessageType messageType) {
-		this.messageType = messageType;
-	}
-
-	public void setMessage(String msg) {
-		this.msg = msg;
-	}
-
-	public void setUsername(String username) {
-		this.username = username;
-	}
+//	public void setMessageType(MessageType messageType) {
+//		this.messageType = messageType;
+//	}
+//
+//	public void setMessage(String msg) {
+//		this.msg = msg;
+//	}
+//
+//	public void setUsername(String username) {
+//		this.username = username;
+//	}
 }

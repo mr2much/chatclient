@@ -17,15 +17,16 @@ public class ChatClient extends Thread {
 	private Socket client;
 	private String username;
 	private List<InputObserver> observers = new ArrayList<>();
+	private MessageBuilder builder = new MessageBuilder();
 
 	public ChatClient(String username, Socket client) throws IOException {
 		this.client = client;
 		this.username = username;
 
 		output = new ObjectOutputStream(client.getOutputStream());
-//		input = new ObjectInputStream(client.getInputStream());
+		// input = new ObjectInputStream(client.getInputStream());
 
-		sendMessage(new Message(MessageType.REGISTER, "carrier has arrived", username));
+		sendMessage(builder.messageType(MessageType.REGISTER).msg("Carrier has arrived").username(username).build());
 	}
 
 	public ChatClient(String username, String host, int timeout) throws UnknownHostException, IOException {
@@ -85,9 +86,10 @@ public class ChatClient extends Thread {
 		output.flush();
 	}
 
-	public void sendMessage(MessageType messageType, String msg) throws IOException {
-		sendMessage(new Message(messageType, msg, this.username));
-	}
+	// public void sendMessage(MessageType messageType, String msg) throws
+	// IOException {
+	// sendMessage(new Message(messageType, msg, this.username));
+	// }
 
 	public void close() throws IOException {
 		client.close();

@@ -2,14 +2,17 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.LinkedHashSet;
 
 import com.lockward.controller.ChatClientController;
 import com.lockward.model.ChatClient;
 import com.lockward.model.Message;
+import com.lockward.model.MessageBuilder;
 import com.lockward.model.MessageType;
 import com.lockward.observer.InputObserver;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -37,9 +40,11 @@ public class Main extends Application implements InputObserver {
 	private Scene mainScene;
 	private TextArea chatBox;
 	private ListView<String> onlineUsers;
-	private static final ObservableList<String> users = FXCollections.observableArrayList();
+	private LinkedHashSet<String> userList = new LinkedHashSet<>();
+	private ObservableList<String> users = FXCollections.observableArrayList();
 	private Message outgoing = null;
 	private MessageHandler messageHandler;
+	private MessageBuilder builder = new MessageBuilder();
 	private static final String host = "172.26.150.23";
 	private static final int timeout = 5000;
 
@@ -95,8 +100,8 @@ public class Main extends Application implements InputObserver {
 
 					}
 
-					messageHandler.sendMessage(
-							new Message(MessageType.REGISTER, "carrier has arrived", messageHandler.getUsername()));
+					messageHandler.sendMessage(builder.messageType(MessageType.REGISTER).msg("Carrier has arrived")
+							.username(messageHandler.getUsername()).build());
 
 					displayConnectionStatus();
 				} catch (IOException ex) {
@@ -146,7 +151,8 @@ public class Main extends Application implements InputObserver {
 			@Override
 			public void handle(ActionEvent e) {
 				try {
-					outgoing = new Message(MessageType.TEXT, messageBox.getText(), messageHandler.getUsername());
+					outgoing = builder.messageType(MessageType.TEXT).msg(messageBox.getText())
+							.username(messageHandler.getUsername()).build();
 					messageHandler.sendMessage(outgoing);
 					messageBox.clear();
 				} catch (IOException ex) {
@@ -181,8 +187,9 @@ public class Main extends Application implements InputObserver {
 	private void closeClientConnection() {
 		if (messageHandler != null && !messageHandler.isClosed()) {
 			try {
-				messageHandler.sendMessage(new Message(MessageType.LOGOFF,
-						messageHandler.getUsername() + " has left the building", messageHandler.getUsername()));
+				messageHandler.sendMessage(builder.messageType(MessageType.LOGOFF)
+						.msg(messageHandler.getUsername() + " has left the building")
+						.username(messageHandler.getUsername()).build());
 				messageHandler.close();
 				messageHandler.interrupt();
 
@@ -209,8 +216,9 @@ public class Main extends Application implements InputObserver {
 		if (messageHandler != null) {
 			try {
 				System.out.println("Closing connection");
-				messageHandler.sendMessage(new Message(MessageType.LOGOFF,
-						messageHandler.getUsername() + " has left the building", messageHandler.getUsername()));
+				messageHandler.sendMessage(builder.messageType(MessageType.LOGOFF)
+						.msg(messageHandler.getUsername() + " has left the building")
+						.username(messageHandler.getUsername()).build());
 				messageHandler.close();
 			} catch (IOException e) {
 				System.out.println("Error closing client connection: " + e.getMessage());
@@ -274,29 +282,66 @@ public class Main extends Application implements InputObserver {
 		}
 
 		private void parseMessage(Message message) {
-			System.out.println("Parsing input: " + message.getMessage());
+			System.out.println("Parsing input: " + message.getMessage() + " Type: " + message.getMessageType()
+					+ " Sub-Type: " + message.getSubMessageType());
 
 			String username = message.getUsername();
 
-			switch (message.getMessageType()) {
-			case REGISTER:
-				if (showNewUserOnList(message)) {
-					System.out.println("User added");
-				}
+			switch (message.getSubMessageType()) {
+			case ADD:
+				showNewUserOnList(message);
+				break;
+
+			case LOGOFF:
+				removeUserFromList(message);
 				break;
 			default:
 				break;
 			}
 		}
 
-		private boolean showNewUserOnList(Message message) {
-			String newUsername = obtainUsernameFromMessage(message.getMessage());
+		private void showNewUserOnList(Message message) {
 
-			return users.add(newUsername);
+			Platform.runLater(new Runnable() {
+
+				@Override
+				public void run() {
+
+					if (message.getAttachment() instanceof Object[]) {
+						Object[] src = (Object[]) message.getAttachment();
+
+						if (src != null) {
+							String[] names = new String[src.length];
+
+							for (int i = 0; i < src.length; i++) {
+								names[i] = src[i].toString();
+							}
+
+							users.setAll(names);
+						}
+					}
+				}
+			});
+
 		}
 
-		private String obtainUsernameFromMessage(String msg) {
-			return msg.split("has logged in")[0].trim();
+		private String obtainUsernameFromMessage(String msg, String pattern) {
+			return msg.split(pattern)[0].trim();
+		}
+
+		private void removeUserFromList(Message message) {
+			String username = obtainUsernameFromMessage(message.getMessage(), "has left the building");
+
+			// avoids Not on FX application thread exception
+			Platform.runLater(new Runnable() {
+
+				@Override
+				public void run() {
+					users.remove(username);
+				}
+
+			});
+
 		}
 
 		public void sendMessage(Message message) throws IOException {
