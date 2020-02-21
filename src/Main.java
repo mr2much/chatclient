@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.LinkedHashSet;
 
 import com.lockward.controller.ChatClientController;
@@ -13,6 +14,10 @@ import com.lockward.observer.InputObserver;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -20,6 +25,8 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -39,14 +46,21 @@ public class Main extends Application implements InputObserver {
 	private String clientStatus = "Offline";
 	private Scene mainScene;
 	private TextArea chatBox;
+	private TextField txtUsername = new TextField();
+	private TextField txtMessageBox = new TextField();
 	private ListView<String> onlineUsers;
+	Button btnClose = new Button("Close");
 	private LinkedHashSet<String> userList = new LinkedHashSet<>();
 	private ObservableList<String> users = FXCollections.observableArrayList();
 	private Message outgoing = null;
-	private MessageHandler messageHandler;
+	private MessageHandler messageHandler = new MessageHandler();
 	private MessageBuilder builder = new MessageBuilder();
 	private static final String host = "172.26.150.23";
 	private static final int timeout = 5000;
+
+	BooleanBinding usernameBinding = Bindings.isEmpty(txtUsername.textProperty());
+	BooleanBinding sendMessageBinding = Bindings.isEmpty(txtMessageBox.textProperty());
+	BooleanProperty clientOfflineStatus = new SimpleBooleanProperty(true);
 
 	public static void main(String[] args) {
 		launch(args);
@@ -54,6 +68,7 @@ public class Main extends Application implements InputObserver {
 
 	@Override
 	public void start(Stage stage) throws Exception {
+		btnClose.disableProperty().set(true);
 		onlineUsers = new ListView<>(users);
 		GridPane grid = new GridPane();
 		grid.setPadding(new Insets(15, 15, 15, 15));
@@ -82,11 +97,10 @@ public class Main extends Application implements InputObserver {
 
 		hbButtons.getChildren().add(lblUsername);
 
-		TextField txtUsername = new TextField();
-
 		hbButtons.getChildren().add(txtUsername);
 
 		Button btnConnect = new Button("Connect");
+		btnConnect.disableProperty().bind(usernameBinding);
 
 		btnConnect.setOnAction(new EventHandler<ActionEvent>() {
 
@@ -97,20 +111,25 @@ public class Main extends Application implements InputObserver {
 
 					if (messageHandler != null) {
 						messageHandler.start();
-
+						messageHandler.sendMessage(builder.messageType(MessageType.REGISTER).msg("Carrier has arrived")
+								.username(messageHandler.getUsername()).build());
 					}
 
-					messageHandler.sendMessage(builder.messageType(MessageType.REGISTER).msg("Carrier has arrived")
-							.username(messageHandler.getUsername()).build());
-
 					displayConnectionStatus();
+				} catch (SocketException ex) {
+					showErrorDialog("Client Error", ex.getMessage().split("\n")[0], ex.getMessage().split("\n")[1]);
+
+					System.out.println("Client Error: " + ex.getMessage());
 				} catch (IOException ex) {
 					System.out.println("Client error: " + ex.getMessage());
+					ex.printStackTrace();
 				}
 
 			}
+
 		});
-		Button btnClose = new Button("Close");
+
+		btnClose.disableProperty().bind(clientOfflineStatus);
 
 		btnClose.setOnAction(new EventHandler<ActionEvent>() {
 
@@ -141,20 +160,35 @@ public class Main extends Application implements InputObserver {
 
 		VBox msgArea = new VBox(10);
 
-		TextField messageBox = new TextField();
-		messageBox.setPromptText("Digite su mensaje");
+		txtMessageBox.setPromptText("Digite su mensaje");
 
 		Button btnSend = new Button("Send");
+
+		// sendMessageBinding.or(new
+		// SimpleBooleanProperty(!isClientOnline().getValue()));
+
+		// Buscar una forma de que el status del boton Send de habilite acorde a si el cliente
+		// esta conectado o no, y tambien a que si el textbox esta vacio o no
+		// quizas solo debe habilitarse acorde con el status de la conexion y no enviar nada
+		// cuando el boton se presione sin texto.
+		sendMessageBinding = Bindings.isEmpty(txtMessageBox.textProperty())
+				.or(new SimpleBooleanProperty(!isClientOnline().getValue()));
+
+		System.out.println("Value: " + sendMessageBinding);
+		btnSend.disableProperty().bind(sendMessageBinding);
+		// btnSend.disableProperty()
+		// .bind(Bindings.or(sendMessageBinding, new
+		// SimpleBooleanProperty(!isClientOnline().getValue())));
 
 		btnSend.setOnAction(new EventHandler<ActionEvent>() {
 
 			@Override
 			public void handle(ActionEvent e) {
 				try {
-					outgoing = builder.messageType(MessageType.TEXT).msg(messageBox.getText())
+					outgoing = builder.messageType(MessageType.TEXT).msg(txtMessageBox.getText())
 							.username(messageHandler.getUsername()).build();
 					messageHandler.sendMessage(outgoing);
-					messageBox.clear();
+					txtMessageBox.clear();
 				} catch (IOException ex) {
 					System.out.println(
 							"Client Error Sending Message: " + ex.getMessage() + "\nMessage: " + outgoing.getMessage());
@@ -163,7 +197,7 @@ public class Main extends Application implements InputObserver {
 
 		});
 
-		msgArea.getChildren().addAll(messageBox, btnSend);
+		msgArea.getChildren().addAll(txtMessageBox, btnSend);
 
 		grid.add(msgArea, 0, 2);
 
@@ -184,6 +218,14 @@ public class Main extends Application implements InputObserver {
 		stage.show();
 	}
 
+	private void showErrorDialog(String title, String header, String message) {
+		Alert alert = new Alert(AlertType.ERROR);
+		alert.setTitle(title);
+		alert.setHeaderText(header);
+		alert.setContentText(message);
+		alert.showAndWait();
+	}
+
 	private void closeClientConnection() {
 		if (messageHandler != null && !messageHandler.isClosed()) {
 			try {
@@ -201,17 +243,29 @@ public class Main extends Application implements InputObserver {
 	}
 
 	private void displayConnectionStatus() {
-		if (messageHandler != null && !messageHandler.isClosed()) {
+		if (isClientOnline().getValue()) {
 			clientStatus = "Online";
 			System.out.println(clientStatus);
+			clientOfflineStatus.set(false);
+//			btnClose.disableProperty().set(false);
 		} else {
+			clientOfflineStatus.set(true);
 			clientStatus = "Offline";
+//			btnClose.disableProperty().set(true);
 		}
 
 		users.clear();
 		Stage stage = (Stage) mainScene.getWindow();
 		stage.setTitle("Chat - " + clientStatus);
 	}
+
+	private BooleanProperty isClientOnline() {
+		return new SimpleBooleanProperty(!messageHandler.isClosed());
+	}
+
+	// private boolean isClientOnline() {
+	// return messageHandler != null && !messageHandler.isClosed();
+	// }
 
 	private void closeConnection(WindowEvent event) {
 		if (messageHandler != null) {
@@ -241,12 +295,14 @@ public class Main extends Application implements InputObserver {
 		private String username;
 		private Socket socket;
 
-		public MessageHandler(String username) {
+		public MessageHandler() {
+		}
+
+		public MessageHandler(String username) throws SocketException, IOException {
 			this.username = username;
 
 			try {
 				if (socket == null) {
-
 					socket = new Socket(host, timeout);
 
 					if (output == null) {
@@ -259,25 +315,33 @@ public class Main extends Application implements InputObserver {
 
 				}
 
-			} catch (IOException e) {
-				System.out.println("Client Error: " + e.getMessage());
+			} catch (SocketException e) {
+				throw new SocketException(String
+						.format("Cannot connect to host: %s\nMake sure the server is running and try again.", host));
 			}
 		}
 
 		@Override
 		public void run() {
-
 			System.out.println("Client running.");
-			try {
-				while (true) {
+
+			while (true) {
+				try {
+
 					while ((message = (Message) input.readObject()) != null) {
 						System.out.println("Mensaje recibido");
 						parseMessage(message);
 						chatBox.appendText(message.getUsername() + ": " + message.getMessage() + "\n");
 					}
+
+				} catch (IOException e) {
+					System.out.println("Client error: " + e.getMessage());
+					this.interrupt();
+					break;
+				} catch (ClassNotFoundException e) {
+					System.out.println("Invalid message: " + e.getMessage());
+					break;
 				}
-			} catch (IOException | ClassNotFoundException e) {
-				System.out.println("Client error: " + e.getMessage());
 			}
 
 		}
@@ -358,5 +422,6 @@ public class Main extends Application implements InputObserver {
 		public String getUsername() {
 			return username;
 		}
+
 	}
 }
