@@ -3,10 +3,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.LinkedHashSet;
 
-import com.lockward.controller.ChatClientController;
-import com.lockward.model.ChatClient;
 import com.lockward.model.Message;
 import com.lockward.model.MessageBuilder;
 import com.lockward.model.MessageType;
@@ -41,8 +38,9 @@ import javafx.stage.WindowEvent;
 
 public class Main extends Application implements InputObserver {
 
-	private ChatClientController clientController = new ChatClientController();
-	private ChatClient chatClient;
+	// private ChatClientController clientController = new
+	// ChatClientController();
+	// private ChatClient chatClient;
 	private String clientStatus = "Offline";
 	private Scene mainScene;
 	private TextArea chatBox;
@@ -50,7 +48,7 @@ public class Main extends Application implements InputObserver {
 	private TextField txtMessageBox = new TextField();
 	private ListView<String> onlineUsers;
 	Button btnClose = new Button("Close");
-	private LinkedHashSet<String> userList = new LinkedHashSet<>();
+	// private LinkedHashSet<String> userList = new LinkedHashSet<>();
 	private ObservableList<String> users = FXCollections.observableArrayList();
 	private Message outgoing = null;
 	private MessageHandler messageHandler = new MessageHandler();
@@ -59,7 +57,6 @@ public class Main extends Application implements InputObserver {
 	private static final int timeout = 5000;
 
 	BooleanBinding usernameBinding = Bindings.isEmpty(txtUsername.textProperty());
-	BooleanBinding sendMessageBinding = Bindings.isEmpty(txtMessageBox.textProperty());
 	BooleanProperty clientOfflineStatus = new SimpleBooleanProperty(true);
 
 	public static void main(String[] args) {
@@ -148,7 +145,7 @@ public class Main extends Application implements InputObserver {
 
 			@Override
 			public void handle(ActionEvent e) {
-				closeClientConnection();
+				// closeClientConnection();
 				stage.close();
 			}
 		});
@@ -167,18 +164,13 @@ public class Main extends Application implements InputObserver {
 		// sendMessageBinding.or(new
 		// SimpleBooleanProperty(!isClientOnline().getValue()));
 
-		// Buscar una forma de que el status del boton Send de habilite acorde a si el cliente
+		// Buscar una forma de que el status del boton Send de habilite acorde a
+		// si el cliente
 		// esta conectado o no, y tambien a que si el textbox esta vacio o no
-		// quizas solo debe habilitarse acorde con el status de la conexion y no enviar nada
+		// quizas solo debe habilitarse acorde con el status de la conexion y no
+		// enviar nada
 		// cuando el boton se presione sin texto.
-		sendMessageBinding = Bindings.isEmpty(txtMessageBox.textProperty())
-				.or(new SimpleBooleanProperty(!isClientOnline().getValue()));
-
-		System.out.println("Value: " + sendMessageBinding);
-		btnSend.disableProperty().bind(sendMessageBinding);
-		// btnSend.disableProperty()
-		// .bind(Bindings.or(sendMessageBinding, new
-		// SimpleBooleanProperty(!isClientOnline().getValue())));
+		btnSend.disableProperty().bind(clientOfflineStatus);
 
 		btnSend.setOnAction(new EventHandler<ActionEvent>() {
 
@@ -227,7 +219,8 @@ public class Main extends Application implements InputObserver {
 	}
 
 	private void closeClientConnection() {
-		if (messageHandler != null && !messageHandler.isClosed()) {
+		System.out.println("Valor: " + isClientOnline().getValue());
+		if (isClientOnline().getValue()) {
 			try {
 				messageHandler.sendMessage(builder.messageType(MessageType.LOGOFF)
 						.msg(messageHandler.getUsername() + " has left the building")
@@ -247,11 +240,9 @@ public class Main extends Application implements InputObserver {
 			clientStatus = "Online";
 			System.out.println(clientStatus);
 			clientOfflineStatus.set(false);
-//			btnClose.disableProperty().set(false);
 		} else {
 			clientOfflineStatus.set(true);
 			clientStatus = "Offline";
-//			btnClose.disableProperty().set(true);
 		}
 
 		users.clear();
@@ -263,12 +254,8 @@ public class Main extends Application implements InputObserver {
 		return new SimpleBooleanProperty(!messageHandler.isClosed());
 	}
 
-	// private boolean isClientOnline() {
-	// return messageHandler != null && !messageHandler.isClosed();
-	// }
-
 	private void closeConnection(WindowEvent event) {
-		if (messageHandler != null) {
+		if (isClientOnline().getValue()) {
 			try {
 				System.out.println("Closing connection");
 				messageHandler.sendMessage(builder.messageType(MessageType.LOGOFF)
